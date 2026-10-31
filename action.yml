@@ -1,5 +1,10 @@
 name: Set up SBOM reporting
 description: Install this revision of the reporting CLI using its locked dependencies
+inputs:
+  revision:
+    description: Exact retained CLI commit to install instead of this action revision
+    required: false
+    default: ""
 outputs:
   revision:
     description: Immutable action revision used to install the CLI
@@ -20,15 +25,21 @@ runs:
       id: install
       shell: bash
       env:
+        REPORTING_RETAINED_REVISION: ${{ inputs.revision }}
         REPORTING_ACTION_PATH: ${{ github.action_path }}
         REPORTING_ACTION_REVISION: ${{ github.action_ref }}
         REPORTING_ACTION_REPOSITORY: ${{ github.action_repository }}
         REPORTING_SERVER_URL: ${{ github.server_url }}
       run: |
+        if [[ -n "$REPORTING_RETAINED_REVISION" && ! "$REPORTING_RETAINED_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "The retained reporting revision must be a full commit SHA."
+          exit 1
+        fi
         if [[ -z "$REPORTING_ACTION_REVISION" ]]; then
           REPORTING_ACTION_REVISION=$(git -C "$REPORTING_ACTION_PATH" rev-parse HEAD)
         fi
-        if [[ ! "$REPORTING_ACTION_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+        if [[ -n "$REPORTING_RETAINED_REVISION" || ! "$REPORTING_ACTION_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+          REPORTING_ACTION_REVISION=${REPORTING_RETAINED_REVISION:-$REPORTING_ACTION_REVISION}
           # Resolve mutable refs once and install that exact checkout. Looking up
           # the branch SHA alone could misidentify the runner's downloaded files.
           REPORTING_SOURCE=$(mktemp -d "$RUNNER_TEMP/sbom-reporting.XXXXXX")

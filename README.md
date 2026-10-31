@@ -38,6 +38,18 @@ Callers still own builds/scans, manifests, secrets, collection prerequisites,
 serialized uploads, branch freshness, and evidence retention. See [the contract]
 for the upload requirements.
 
+For retries, authenticate the retained build evidence first, then pass its saved
+full commit SHA as the `revision` input. The setup action fetches that commit
+from its own repository and installs it with its own lockfile. A branch or tag
+is rejected for this input. Keep the setup action itself SHA-pinned and record
+its revision separately from the installed CLI revision when they differ.
+
+Version `v0.1.0` is the first tagged release. Tags are not moved after
+publication. During the `0.x` series, incompatible CLI or reporting-contract
+changes increment the minor version; compatible fixes increment the patch
+version. Retained snapshots are retried with their original CLI commit rather
+than assuming that new versions can reconstruct them.
+
 ## Development
 
 Requires Python 3.14 and [uv]. The project uses `pyproject.toml`, a `src`

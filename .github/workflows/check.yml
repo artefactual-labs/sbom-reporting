@@ -96,3 +96,28 @@ jobs:
           sbom-reporting --version
           sbom-reporting merge "$GITHUB_WORKSPACE/examples/manifest.json" --output action-snapshot
           sbom-reporting verify action-snapshot
+      - name: Restore an earlier retained CLI revision
+        uses: $/
+        id: retained
+        with:
+          revision: 1d93ef7fec1d814d161a0df9fea2220e7e956861
+      - name: Verify the installed source and retained snapshot
+        env:
+          RETAINED_REVISION: ${{ steps.retained.outputs.revision }}
+          RETAINED_PYTHON: ${{ steps.retained.outputs.python }}
+        run: |
+          test "$RETAINED_REVISION" = 1d93ef7fec1d814d161a0df9fea2220e7e956861
+          source_dir=$(dirname "$(dirname "$(dirname "$RETAINED_PYTHON")")")
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "$RETAINED_REVISION"
+          cd "$RUNNER_TEMP"
+          sbom-reporting verify action-snapshot
+      - name: Reject a mutable retained revision
+        uses: $/
+        id: invalid-retained
+        continue-on-error: true
+        with:
+          revision: main
+      - name: Require rejection of the mutable revision
+        env:
+          RESULT: ${{ steps.invalid-retained.outcome }}
+        run: test "$RESULT" = failure
