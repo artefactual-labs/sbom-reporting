@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from conftest import inventory
 
+from sbom_reporting import __version__
 from sbom_reporting.cli import main
 from sbom_reporting.documents import (
     CONTAINS,
@@ -194,7 +195,7 @@ def test_manifest_schema_and_installed_entrypoint(
     result = subprocess.run(
         ["sbom-reporting", "--version"], capture_output=True, text=True, check=True
     )
-    assert result.stdout.strip() == "0.1.0"
+    assert result.stdout.strip() == __version__
 
 
 def test_duplicate_json_keys_fail(manifest_path: Path) -> None:

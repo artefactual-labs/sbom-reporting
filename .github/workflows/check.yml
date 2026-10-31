@@ -64,6 +64,7 @@ jobs:
           version: "0.13.6"
           python-version-file: .python-version
           enable-cache: true
+      - run: node --test tests/frontend.test.mjs
       - run: uv sync --locked
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
@@ -82,6 +83,12 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+      - name: Create a snapshot using the earlier CLI
+        uses: $/
+        with:
+          revision: 1d93ef7fec1d814d161a0df9fea2220e7e956861
+      - name: Retain the earlier snapshot
+        run: sbom-reporting merge examples/manifest.json --output "$RUNNER_TEMP/retained-snapshot"
       - uses: $/
         id: reporting
       - name: Exercise the installed CLI outside its source directory
@@ -89,9 +96,12 @@ jobs:
           REPORTING_REVISION: ${{ steps.reporting.outputs.revision }}
           EXPECTED_REVISION: ${{ github.sha }}
           REPORTING_PYTHON: ${{ steps.reporting.outputs.python }}
+          FRONTEND_PLUGIN: ${{ steps.reporting.outputs.frontend-plugin }}
         run: |
           test "$REPORTING_REVISION" = "$EXPECTED_REVISION"
           "$REPORTING_PYTHON" -c 'import sbom_reporting'
+          test "$FRONTEND_PLUGIN" = "$(sbom-reporting frontend-plugin)"
+          node --input-type=module -e 'import {pathToFileURL} from "node:url"; const {sbomEvidence}=await import(pathToFileURL(process.env.FRONTEND_PLUGIN).href); if(typeof sbomEvidence !== "function") process.exit(1)'
           cd "$RUNNER_TEMP"
           sbom-reporting --version
           sbom-reporting merge "$GITHUB_WORKSPACE/examples/manifest.json" --output action-snapshot
@@ -110,7 +120,7 @@ jobs:
           source_dir=$(dirname "$(dirname "$(dirname "$RETAINED_PYTHON")")")
           test "$(git -C "$source_dir" rev-parse HEAD)" = "$RETAINED_REVISION"
           cd "$RUNNER_TEMP"
-          sbom-reporting verify action-snapshot
+          sbom-reporting verify retained-snapshot
       - name: Reject a mutable retained revision
         uses: $/
         id: invalid-retained

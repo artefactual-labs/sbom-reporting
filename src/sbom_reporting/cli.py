@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from . import __version__
+from .collectors import collect
 from .documents import ReportingError
 from .models import Manifest
 from .snapshot import create, verify
@@ -21,6 +22,16 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "manifest-schema", help="Print the version 1 manifest JSON schema"
+    )
+    commands.add_parser("frontend-plugin", help="Print the packaged Vite plugin path")
+    collector = commands.add_parser(
+        "collect-goreleaser", help="Inspect a Go archive with an embedded Vite frontend"
+    )
+    collector.add_argument("config", type=Path)
+    for flag in ("version", "commit", "run"):
+        collector.add_argument("--" + flag, required=True)
+    collector.add_argument(
+        "--parent-uuid", default=os.getenv("DEPENDENCY_TRACK_PARENT_UUID")
     )
     merge = commands.add_parser(
         "merge", help="Validate inputs and save a complete snapshot"
@@ -43,7 +54,18 @@ def main(argv: list[str] | None = None) -> int:
     publish.add_argument("--timeout", type=float, default=300)
     args = parser.parse_args(argv)
     try:
-        if args.command == "manifest-schema":
+        if args.command == "frontend-plugin":
+            print(Path(__file__).parent / "frontend" / "sbom-evidence.mjs")
+            return 0
+        if args.command == "collect-goreleaser":
+            result = collect(
+                args.config,
+                version=args.version,
+                commit=args.commit,
+                run=args.run,
+                parent_uuid=args.parent_uuid,
+            )
+        elif args.command == "manifest-schema":
             result = Manifest.model_json_schema()
         elif args.command == "merge":
             result = create(args.manifest, args.output)

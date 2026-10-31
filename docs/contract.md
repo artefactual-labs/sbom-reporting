@@ -82,7 +82,7 @@ Known `*:source:commit`, reporting-version, and image-reference assertions are
 checked against the manifest when supplied. A manifest is still a
 caller-supplied provenance assertion, not proof that a scanner read the declared
 artifact. Repository adapters must independently establish that connection, such
-as Enduro's comparison of embedded frontend bytes.
+as the shared GoReleaser collector's comparison of embedded frontend bytes.
 
 ## Origins and scanner properties
 

@@ -9,6 +9,9 @@ outputs:
   revision:
     description: Immutable action revision used to install the CLI
     value: ${{ steps.install.outputs.revision }}
+  frontend-plugin:
+    description: Packaged Vite evidence plugin from the installed CLI revision
+    value: ${{ steps.install.outputs.frontend-plugin }}
   python:
     description: Python executable with the reporting package and dependencies installed
     value: ${{ steps.install.outputs.python }}
@@ -54,3 +57,6 @@ runs:
         echo "$REPORTING_ACTION_PATH/.venv/bin" >> "$GITHUB_PATH"
         echo "python=$REPORTING_ACTION_PATH/.venv/bin/python" >> "$GITHUB_OUTPUT"
         echo "revision=$REPORTING_ACTION_REVISION" >> "$GITHUB_OUTPUT"
+        if [[ -f "$REPORTING_ACTION_PATH/src/sbom_reporting/frontend/sbom-evidence.mjs" ]]; then
+          echo "frontend-plugin=$REPORTING_ACTION_PATH/src/sbom_reporting/frontend/sbom-evidence.mjs" >> "$GITHUB_OUTPUT"
+        fi

@@ -1,8 +1,8 @@
 # sbom-reporting
 
 A small Python CLI for combining software inventories and reporting them to
-Dependency-Track. Each repository builds and scans its own software. This tool
-checks the declared inputs, preserves their origins, creates one complete
+Dependency-Track. Repositories build their software and select collectors. This
+tool checks the declared inputs, preserves their origins, creates one complete
 CycloneDX snapshot, and verifies its import.
 
 This is a CLI, not a deployed service. Enduro legacy has a verified development
@@ -34,9 +34,9 @@ and installs that exact checkout. This preserves an accurate `revision` output
 even if the branch changes after the runner downloads the action. SHA-pinned
 calls install directly from the downloaded action directory.
 
-Callers still own builds/scans, manifests, secrets, collection prerequisites,
-serialized uploads, branch freshness, and evidence retention. See [the contract]
-for the upload requirements.
+Callers still own build orchestration, collection configuration, secrets,
+collection prerequisites, serialized uploads, branch freshness, and evidence
+retention. See [the contract] for the upload requirements.
 
 For retries, authenticate the retained build evidence first, then pass its saved
 full commit SHA as the `revision` input. The setup action fetches that commit
@@ -49,6 +49,69 @@ publication. During the `0.x` series, incompatible CLI or reporting-contract
 changes increment the minor version; compatible fixes increment the patch
 version. Retained snapshots are retried with their original CLI commit rather
 than assuming that new versions can reconstruct them.
+
+## Shared collection
+
+Version 0.2.0 includes a GoReleaser archive collector and a packaged Vite
+evidence plugin. They are distributed with the Python package and setup action,
+so a product repository needs configuration and plugin registration, not copies
+of the collector code. The current explicit profile supports one Linux amd64,
+CGO-disabled Go binary in one tar.gz archive with an embedded Vite frontend.
+Other platforms and delivery formats fail until a supported profile is added.
+
+Create a repository configuration such as `sbom.toml`:
+
+```toml
+product = "Example App"
+repository = "example/app"
+property_namespace = "example-app"
+binary = "app"
+platform = "linux/amd64"
+dist = "dist"
+frontend = "frontend/.output/public"
+evidence = "sbom-evidence"
+rolling_versions = ["main"]
+```
+
+Paths resolve relative to the configuration file. Before building, retain
+`go list -m -json all` as `go-modules.json` and the npm `package-lock.json` in
+the evidence directory. Install the setup action before the frontend build, and
+pass its `frontend-plugin` output as `SBOM_FRONTEND_PLUGIN` together with an
+absolute `SBOM_FRONTEND_EVIDENCE` destination for `frontend-build.json`. Without
+Actions, `sbom-reporting frontend-plugin` prints the same packaged plugin path.
+
+Nuxt/Vite configuration imports the supplied module only for reporting builds:
+
+```javascript
+import { pathToFileURL } from 'node:url'
+
+const pluginPath = process.env.SBOM_FRONTEND_PLUGIN
+const plugins = pluginPath
+  ? [(await import(pathToFileURL(pluginPath).href)).sbomEvidence({ nuxtIcons: true })]
+  : []
+// Add plugins to the application's Vite configuration.
+```
+
+The `nuxtIcons` integration is opt-in. It verifies generated icon bodies against
+their installed collection packages and rejects unknown generated formats. The
+plugin records rendered package modules separately from build-only inputs and
+hashes emitted JavaScript chunks without changing them. It does not establish
+complete CSS/font/virtual-asset package attribution.
+
+After GoReleaser finishes:
+
+```sh
+sbom-reporting collect-goreleaser sbom.toml \
+  --version "$VERSION" --commit "$COMMIT" --run "$CI_RUN"
+sbom-reporting merge sbom-evidence/manifest.json --output sbom-evidence/snapshot
+```
+
+Set `DEPENDENCY_TRACK_PARENT_UUID` as usual. The collector validates archive
+checksums, platform, clean source identity, compiled Go dependencies, frontend
+package versions, chunk hashes, and embedded file bytes. It emits six required
+inventories and the manifest: Go source, npm source, binary, frontend bundle,
+frontend build inputs, and artifact files. Collection never uploads. Retry
+commands continue to use the original installed tool revision and snapshot.
 
 ## Development
 
@@ -65,6 +128,7 @@ uv run --locked ruff format --check .
 uv run --locked ty check
 uv run --locked pytest --cov=sbom_reporting --cov-report=term-missing
 uv build
+node --test tests/frontend.test.mjs
 ```
 
 To update to the latest compatible releases, run `uv lock --upgrade`, then
@@ -148,9 +212,10 @@ merge rules, and upload verification. See [rollout] for the remaining pilot and
 operational work.
 
 The implementation draws on the existing a3m, AIPscan, depbot, and Enduro legacy
-approaches. It handles their common reporting concerns; archive inspection,
-frontend evidence, container scanning, CI-specific trust/freshness checks, and
-release retention remain repository responsibilities.
+approaches. Shared collectors handle supported archive inspection and frontend
+evidence. Build orchestration, unsupported artifact formats, container scanning,
+CI-specific trust/freshness checks, and release retention remain repository
+responsibilities.
 
 [actions lockfile]: https://github.com/github/gh-actions-lock
 [jactionlint]: https://jactionlint.jdx.dev/

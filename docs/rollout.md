@@ -35,9 +35,10 @@ frontend bundle packages, frontend build inputs, and delivered files into one
 validated 1,869-component snapshot. The actual Linux amd64 archive, embedded
 frontend, component origins, source commit, CI run, hashes, and dependency graph
 were retained and verified against the server export. Post-import freshness was
-true for the final branch commit. Enduro owns its artifact collector and CI
-coordination; common merging, snapshot validation, hierarchy checks, and import
-verification are provided here.
+true for the final branch commit. The pilot originally used an Enduro-local
+collector. Collection now lives in the shared package; Enduro owns configuration
+and CI coordination; common merging, snapshot validation, hierarchy checks, and
+import verification are provided here.
 
 Live use exposed sparse lookup responses and the Java PURL library's legacy Go
 casing. The shared client now fetches full project records and recognizes that
