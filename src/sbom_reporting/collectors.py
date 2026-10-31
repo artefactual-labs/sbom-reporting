@@ -273,12 +273,14 @@ class Collector:
         binary_go = []
         lines = buildinfo.splitlines()
         toolchain = lines[0].split()[-1]
+        # Go vulnerability records identify the linked standard library as
+        # stdlib. The complete compiler/build information is retained above.
         binary_go.append(
             self.package(
                 "golang",
-                "go",
+                "stdlib",
                 toolchain.removeprefix("go"),
-                "binary-toolchain",
+                "binary-stdlib",
                 "linux/amd64",
             )
         )

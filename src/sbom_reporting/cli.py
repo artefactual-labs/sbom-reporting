@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .collectors import collect
-from .documents import ReportingError
+from .documents import ReportingError, write
 from .models import Manifest
 from .snapshot import create, verify
 from .upload import Client, upload
@@ -72,15 +72,30 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "verify":
             _, _, result = verify(args.snapshot)
         else:
-            url, key = (
-                os.getenv("DEPENDENCY_TRACK_URL"),
-                os.getenv("DEPENDENCY_TRACK_API_KEY"),
-            )
-            if not url or not key:
-                raise ReportingError(
-                    "Configure DEPENDENCY_TRACK_URL and DEPENDENCY_TRACK_API_KEY"
+            # Configuration is part of this attempt, even before an HTTP client
+            # exists. Never leave a previous successful receipt on failure.
+            receipt_path = args.snapshot / "upload-result.json"
+            write(receipt_path, {"schema_version": 1, "state": "configuring"})
+            try:
+                url, key = (
+                    os.getenv("DEPENDENCY_TRACK_URL"),
+                    os.getenv("DEPENDENCY_TRACK_API_KEY"),
                 )
-            client = Client(url, key)
+                if not url or not key:
+                    raise ReportingError(
+                        "Configure DEPENDENCY_TRACK_URL and DEPENDENCY_TRACK_API_KEY"
+                    )
+                client = Client(url, key)
+            except ReportingError, ValueError, OSError:
+                write(
+                    receipt_path,
+                    {
+                        "schema_version": 1,
+                        "state": "failed",
+                        "last_state": "configuring",
+                    },
+                )
+                raise
             try:
                 result = upload(
                     args.snapshot,

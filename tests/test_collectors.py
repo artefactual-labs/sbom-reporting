@@ -161,7 +161,21 @@ class InventoryTests(unittest.TestCase):
             combined = inventory.load(snapshot / "combined.cdx.json")
             self.assertEqual(combined["metadata"]["component"]["name"], "Fixture App")
             self.assertEqual(combined["metadata"]["component"]["version"], "v1.0.0")
-            self.assertTrue(any(c["name"] == "go" for c in combined["components"]))
+            stdlib = next(c for c in combined["components"] if c["name"] == "stdlib")
+            go_version = run("go", "version", "-m", str(binary_path)).splitlines()[0]
+            go_version = go_version.split()[-1].removeprefix("go")
+            self.assertEqual(stdlib["version"], go_version)
+            self.assertEqual(
+                stdlib["purl"],
+                f"pkg:golang/stdlib@{go_version}?arch=amd64&os=linux",
+            )
+            self.assertEqual(
+                {
+                    o["input"]
+                    for o in json.loads(inventory.properties(stdlib)[inventory.ORIGINS])
+                },
+                {"binary"},
+            )
             vue = next(c for c in combined["components"] if c["name"] == "vue")
             props = inventory.properties(vue)
             scanner = json.loads(props["sbom-reporting:scanner-properties:v1"])

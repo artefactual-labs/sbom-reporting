@@ -1,6 +1,6 @@
 [project]
 name = "sbom-reporting"
-version = "0.2.0"
+version = "0.2.1"
 description = "Validate, combine, and verify software inventories in Dependency-Track"
 readme = "README.md"
 requires-python = ">=3.14"

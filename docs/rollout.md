@@ -24,7 +24,7 @@ uploads; they are not a replacement for the two pilots.
 
 ## Enduro development pilot
 
-The Enduro legacy caller uses reviewed tool commit
+The historical Enduro legacy pilot used tool commit
 `3c6b667d7c0cd833a7ef878530d1e9c6770f1000`. Its [reporting run] and [test run]
 passed on `dev/sbom-reporting` at `b060f01273ab1444d2a8d24d14ea3bb3f7627566`.
 The [imported inventory] is named `Legacy Enduro`, version `dev/sbom-reporting`;
@@ -58,15 +58,26 @@ evidence.
 ## Remaining adoption work
 
 - Agree the manifest/origin/containment contract with report consumers.
+  Demonstrate that a component found in source and an artifact retains both
+  observations, tooling-only findings stay distinguishable, and absent origin
+  appears as unknown. Do not infer runtime reachability from source presence.
 - Review licensing and release ownership for the new repository.
 - Add representative scanner fixtures from the pilot workflows and test any
   unsupported structures before claiming those formats are covered.
 - Pilot depbot and AIPscan locally and then, with explicit authorization,
   against Dependency-Track. Verify real import/export normalization, hierarchy,
   package identities, file hashes, multi-valued properties, graphs, and origins.
+  Include container/Python scanner outputs and a GitLab caller before extending
+  the GoReleaser collector's deliberately narrow platform/build profile.
 - Enduro provides a GitHub caller wrapper. Implement and verify equivalent
   trusted-run lookup, serialization, freshness, failure visibility, and release
   retention for the other callers, including GitLab.
+- Exercise retained-release recovery with an expired CI artifact and an
+  available original run record. Enduro authenticates release assets against
+  that record, so preserve the run for the entire supported release lifetime. A
+  saved copy of run JSON inside the same asset is not independent
+  authentication. A missing run must remain a visible failure until a durable,
+  independently verifiable provenance mechanism is implemented.
 - Pin callers to a reviewed commit. An invocation can use
   `uvx --from 'git+https://github.com/artefactual-labs/sbom-reporting@COMMIT' sbom-reporting ...`;
   use a full commit SHA and retain the corresponding lockfile.

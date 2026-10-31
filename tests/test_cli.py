@@ -208,6 +208,52 @@ def test_duplicate_json_keys_fail(manifest_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("previous_receipt", [False, True])
+@pytest.mark.parametrize(
+    ("url", "key"),
+    [
+        (None, "do-not-print-this-key"),
+        ("https://example.invalid", None),
+        ("http://example.invalid", "do-not-print-this-key"),
+        (
+            "https://user:do-not-print-this-password@example.invalid",
+            "do-not-print-this-key",
+        ),
+    ],
+)
+def test_upload_configuration_failure_records_current_attempt(
+    manifest_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    previous_receipt: bool,
+    url: str | None,
+    key: str | None,
+) -> None:
+    snapshot = manifest_path.parent / "snapshot"
+    assert main(["merge", str(manifest_path), "--output", str(snapshot)]) == 0
+    receipt = snapshot / "upload-result.json"
+    if previous_receipt:
+        write(receipt, {"schema_version": 1, "state": "verified", "token": "old-token"})
+    for name, value in (
+        ("DEPENDENCY_TRACK_URL", url),
+        ("DEPENDENCY_TRACK_API_KEY", key),
+    ):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert main(["upload", str(snapshot)]) == 1
+    assert load(receipt) == {
+        "schema_version": 1,
+        "state": "failed",
+        "last_state": "configuring",
+    }
+    output = capsys.readouterr()
+    assert "do-not-print" not in output.out + output.err + receipt.read_text()
+    # A configuration failure does not damage the retained inventory.
+    assert main(["verify", str(snapshot)]) == 0
+
+
 def test_scanner_multivalued_properties_are_preserved(manifest_path: Path) -> None:
     source = manifest_path.parent / "source.json"
     document = load(source)

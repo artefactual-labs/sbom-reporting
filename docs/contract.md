@@ -155,12 +155,14 @@ Reads need `VIEW_PORTFOLIO` and access to the projects; uploads need
 `PROJECT_CREATION_UPLOAD` or `PORTFOLIO_MANAGEMENT`. The reporting key need not
 administer collections.
 
-The uploader records distinct stages in `upload-result.json`: validation,
-acceptance, processed-but-unverified, and verified import. Failures replace a
-previous receipt with a failing state and retain the last completed stage. The
-original snapshot remains available for retry. The latest server-exported BOM is
-retained as `imported.cdx.json` for mismatch diagnosis. It never reports a
-failed upload as zero vulnerabilities or as a vulnerability-policy pass.
+The CLI records configuration, then the uploader records validation, acceptance,
+processed-but-unverified, and verified import in `upload-result.json`.
+Configuration failures record `state: failed` and `last_state: configuring`,
+including missing credentials and invalid API URLs. Failures replace a previous
+receipt with a failing state and retain the last stage reached. The original
+snapshot remains available for retry. The latest server-exported BOM is retained
+as `imported.cdx.json` for mismatch diagnosis. It never reports a failed upload
+as zero vulnerabilities or as a vulnerability-policy pass.
 
 After processing completes, the tool exports the server's inventory and compares
 application identity, source/CI references, component identities, origins,
