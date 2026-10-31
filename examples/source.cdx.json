@@ -1,0 +1,30 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "library",
+      "name": "example-library",
+      "purl": "pkg:npm/example-library@1.0.0",
+      "type": "library",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "library"
+      ],
+      "ref": "source"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "source",
+      "name": "example-source",
+      "type": "application",
+      "version": "1"
+    }
+  },
+  "specVersion": "1.6",
+  "version": 1
+}

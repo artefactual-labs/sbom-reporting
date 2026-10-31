@@ -1,0 +1,98 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify-actions-lock:
+    name: Verify action lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-actions-lock --pin v0.4.0
+      - name: Verify locked dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify
+
+  lint-workflows:
+    name: Lint GitHub Actions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/jactionlint@v2.4.0
+        with:
+          strict-exit: "true"
+
+  check:
+    name: Check Python package
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          python-version-file: .python-version
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked ty check
+      - run: uv run --locked pytest --cov=sbom_reporting --cov-report=term-missing
+      - run: uv build
+      - run: uv run --locked sbom-reporting --version
+
+  action:
+    name: Published action behavior
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/
+        id: reporting
+      - name: Exercise the installed CLI outside its source directory
+        env:
+          REPORTING_REVISION: ${{ steps.reporting.outputs.revision }}
+          EXPECTED_REVISION: ${{ github.sha }}
+          REPORTING_PYTHON: ${{ steps.reporting.outputs.python }}
+        run: |
+          test "$REPORTING_REVISION" = "$EXPECTED_REVISION"
+          "$REPORTING_PYTHON" -c 'import sbom_reporting'
+          cd "$RUNNER_TEMP"
+          sbom-reporting --version
+          sbom-reporting merge "$GITHUB_WORKSPACE/examples/manifest.json" --output action-snapshot
+          sbom-reporting verify action-snapshot

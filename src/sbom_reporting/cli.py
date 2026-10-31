@@ -1,0 +1,88 @@
+"""Small command-line interface; keys are read only from the environment."""
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+from pydantic import ValidationError
+
+from . import __version__
+from .documents import ReportingError
+from .models import Manifest
+from .snapshot import create, verify
+from .upload import Client, upload
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=__version__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "manifest-schema", help="Print the version 1 manifest JSON schema"
+    )
+    merge = commands.add_parser(
+        "merge", help="Validate inputs and save a complete snapshot"
+    )
+    merge.add_argument("manifest", type=Path)
+    merge.add_argument("--output", type=Path, required=True)
+    check = commands.add_parser(
+        "verify", help="Verify saved inputs, identities, and combined output"
+    )
+    check.add_argument("snapshot", type=Path)
+    publish = commands.add_parser(
+        "upload", help="Upload a retained snapshot and verify import"
+    )
+    publish.add_argument("snapshot", type=Path)
+    publish.add_argument("--allow-create", action="store_true")
+    publish.add_argument(
+        "--expected-head",
+        help="Current rolling head, obtained under the caller's upload lock",
+    )
+    publish.add_argument("--timeout", type=float, default=300)
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "manifest-schema":
+            result = Manifest.model_json_schema()
+        elif args.command == "merge":
+            result = create(args.manifest, args.output)
+        elif args.command == "verify":
+            _, _, result = verify(args.snapshot)
+        else:
+            url, key = (
+                os.getenv("DEPENDENCY_TRACK_URL"),
+                os.getenv("DEPENDENCY_TRACK_API_KEY"),
+            )
+            if not url or not key:
+                raise ReportingError(
+                    "Configure DEPENDENCY_TRACK_URL and DEPENDENCY_TRACK_API_KEY"
+                )
+            client = Client(url, key)
+            try:
+                result = upload(
+                    args.snapshot,
+                    client,
+                    allow_create=args.allow_create,
+                    expected_head=args.expected_head,
+                    timeout=args.timeout,
+                )
+            finally:
+                client.close()
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    except ValidationError as error:
+        # Do not echo arbitrary input values (which might contain credentials).
+        messages = [
+            f"{'.'.join(map(str, e['loc']))}: {e['msg']}"
+            for e in error.errors(include_input=False, include_url=False)
+        ]
+        print("Invalid manifest: " + "; ".join(messages), file=sys.stderr)
+    except (ReportingError, OSError, ValueError, KeyError) as error:
+        message = (
+            str(error)
+            if isinstance(error, ReportingError)
+            else "Invalid or unreadable reporting input"
+        )
+        print(f"SBOM reporting failed: {message}", file=sys.stderr)
+    return 1

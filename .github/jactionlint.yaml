@@ -1,0 +1,4 @@
+profile: pedantic
+rules:
+  # gh actions-lock --verify enforces workflow and transitive action pins.
+  unpinned-uses: off

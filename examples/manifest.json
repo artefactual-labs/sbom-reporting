@@ -1,0 +1,27 @@
+{
+  "ci_run": "https://github.com/example/app/actions/runs/123/attempts/1",
+  "inputs": [
+    {
+      "id": "source",
+      "role": "source",
+      "sbom": "source.cdx.json"
+    },
+    {
+      "artifact": {
+        "image": "registry.example/app@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "example-image",
+        "platform": "linux/amd64"
+      },
+      "id": "container",
+      "role": "artifact",
+      "sbom": "container.cdx.json"
+    }
+  ],
+  "kind": "release",
+  "parent_uuid": "11111111-1111-4111-8111-111111111111",
+  "product": "example",
+  "repository": "https://github.com/example/app",
+  "schema_version": 1,
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "version": "v1.0.0"
+}

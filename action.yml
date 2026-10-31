@@ -1,0 +1,45 @@
+name: Set up SBOM reporting
+description: Install this revision of the reporting CLI using its locked dependencies
+outputs:
+  revision:
+    description: Immutable action revision used to install the CLI
+    value: ${{ steps.install.outputs.revision }}
+  python:
+    description: Python executable with the reporting package and dependencies installed
+    value: ${{ steps.install.outputs.python }}
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: "0.13.6"
+        python-version: "3.14"
+        # The lockfile belongs to the downloaded action, not the caller checkout.
+        enable-cache: false
+    - name: Install the reporting package
+      id: install
+      shell: bash
+      env:
+        REPORTING_ACTION_PATH: ${{ github.action_path }}
+        REPORTING_ACTION_REVISION: ${{ github.action_ref }}
+        REPORTING_ACTION_REPOSITORY: ${{ github.action_repository }}
+        REPORTING_SERVER_URL: ${{ github.server_url }}
+      run: |
+        if [[ -z "$REPORTING_ACTION_REVISION" ]]; then
+          REPORTING_ACTION_REVISION=$(git -C "$REPORTING_ACTION_PATH" rev-parse HEAD)
+        fi
+        if [[ ! "$REPORTING_ACTION_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+          # Resolve mutable refs once and install that exact checkout. Looking up
+          # the branch SHA alone could misidentify the runner's downloaded files.
+          REPORTING_SOURCE=$(mktemp -d "$RUNNER_TEMP/sbom-reporting.XXXXXX")
+          git -C "$REPORTING_SOURCE" init --quiet
+          git -C "$REPORTING_SOURCE" remote add origin "$REPORTING_SERVER_URL/$REPORTING_ACTION_REPOSITORY.git"
+          git -C "$REPORTING_SOURCE" fetch --quiet --depth=1 origin "$REPORTING_ACTION_REVISION"
+          git -C "$REPORTING_SOURCE" checkout --quiet --detach FETCH_HEAD
+          REPORTING_ACTION_PATH=$REPORTING_SOURCE
+          REPORTING_ACTION_REVISION=$(git -C "$REPORTING_SOURCE" rev-parse HEAD)
+        fi
+        uv sync --locked --no-dev --project "$REPORTING_ACTION_PATH"
+        echo "$REPORTING_ACTION_PATH/.venv/bin" >> "$GITHUB_PATH"
+        echo "python=$REPORTING_ACTION_PATH/.venv/bin/python" >> "$GITHUB_OUTPUT"
+        echo "revision=$REPORTING_ACTION_REVISION" >> "$GITHUB_OUTPUT"

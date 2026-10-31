@@ -1,0 +1,38 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "group",
+      "components": [
+        {
+          "bom-ref": "library",
+          "name": "example-library",
+          "purl": "pkg:npm/example-library@1.0.0",
+          "type": "library",
+          "version": "1.0.0"
+        }
+      ],
+      "name": "nested-group",
+      "type": "library",
+      "version": "1"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "library"
+      ],
+      "ref": "image"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "image",
+      "name": "example-image",
+      "type": "container",
+      "version": "1"
+    }
+  },
+  "specVersion": "1.6",
+  "version": 1
+}
